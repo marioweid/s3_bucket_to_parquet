@@ -1,0 +1,12 @@
+[package]
+name = "hsd_daily_exports_rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dotenv = "0.15.0"
+aws-sdk-s3 = "1.41.0"
+aws-config = "1.5.4"
+aws-credential-types = { version = "1.1.1", features = ["hardcoded-credentials"] }
+tokio = { version = "1.38.1", features = ["full"] }
+aws-types = "1.3.3"
