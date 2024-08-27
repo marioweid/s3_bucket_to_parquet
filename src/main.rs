@@ -1,9 +1,10 @@
 use aws_sdk_s3::{types::Object, Client};
 use aws_config::SdkConfig;
 use aws_types::region::Region;
-use dotenv::dotenv;
 use tokio::{fs::File, io::{AsyncWriteExt, BufReader}};
 use std::{env, error::Error, path::Path};
+use polars::prelude::{DataFrame, Series};
+use dotenv::dotenv;
 use glob::glob;
 use serde_json;
 mod serde_models;
@@ -61,6 +62,30 @@ async fn get_object(client: &Client, bucket: &str, obj_key: &str) -> Result<usiz
     Ok(byte_count)
 }
 
+fn json_structs_to_dataframe(data: Vec<serde_models::JsonStruct>) -> Result<DataFrame> {
+    let ids: Vec<u64> = data.iter().map(|s| s.col_1).collect();
+    let parents: Vec<u64> = data.iter().map(|s| s.col_2).collect();
+    let threads: Vec<u64> = data.iter().map(|s| s.col_3).collect();
+    let forums: Vec<&str> = data.iter().map(|s| s.col_4.as_str()).collect();
+    let messages: Vec<&str> = data.iter().map(|s| s.col_5.as_str()).collect();
+    let created_ats: Vec<&str> = data.iter().map(|s| s.col_6.as_str()).collect();
+    let is_hatespeeches: Vec<Option<bool>> = data.iter().map(|s| s.col_7).collect();
+    let hs_scores: Vec<f64> = data.iter().map(|s| s.col_8).collect();
+
+    let df = DataFrame::new(vec![
+        Series::new("id", ids),
+        Series::new("parent", parents),
+        Series::new("thread", threads),
+        Series::new("forum", forums),
+        Series::new("message", messages),
+        Series::new("created_at", created_ats),
+        Series::new("is_hatespeech", is_hatespeeches),
+        Series::new("hs_score", hs_scores),
+    ])?;
+
+    Ok(df)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
@@ -106,6 +131,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Err(e) => println!("Error: {:?}", e),
         }
     }
+
+    let df = json_structs_to_dataframe(all_data)?;
+    // Print the DataFrame
+    println!("{:?}", df);
 
 
 
