@@ -2,9 +2,15 @@ use aws_sdk_s3::{types::Object, Client};
 use aws_config::SdkConfig;
 use aws_types::region::Region;
 use dotenv::dotenv;
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{fs::File, io::{AsyncWriteExt, BufReader}};
 use std::{env, error::Error, path::Path};
+use glob::glob;
+use serde_json;
+mod serde_models;
 
+
+
+#[allow(unused)]
 async fn list_objects(client: &Client, bucket: &str, prefix: &str) -> Result<Vec<Object>, aws_sdk_s3::Error> {
     let mut objects = Vec::new();
     let mut continuation_token = None;
@@ -33,6 +39,7 @@ async fn list_objects(client: &Client, bucket: &str, prefix: &str) -> Result<Vec
     Ok(objects)
 }
 
+#[allow(unused)]
 async fn get_object(client: &Client, bucket: &str, obj_key: &str) -> Result<usize, Box<dyn Error>> {
     let mut file: File = File::create(obj_key).await?;
     
@@ -57,36 +64,52 @@ async fn get_object(client: &Client, bucket: &str, obj_key: &str) -> Result<usiz
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
-    let region: String = env::var("REGION").expect("REGION must be set in .env file");
-    let bucket: String = env::var("BUCKET").expect("BUCKET must be set in .env file");
-    let subfolder: String = env::var("SUBFOLDER").expect("SUBFOLDER must be set in .env file");
+    // AWS STUFF, commented out to safe s3 requests
+    // let region: String = env::var("REGION").expect("REGION must be set in .env file");
+    // let bucket: String = env::var("BUCKET").expect("BUCKET must be set in .env file");
+    // let subfolder: String = env::var("SUBFOLDER").expect("SUBFOLDER must be set in .env file");
     
-    // Load AWS configuration
-    #[allow(deprecated)]
-    let config: SdkConfig = aws_config::from_env().region(Region::new(region)).load().await;
-    let client: Client = Client::new(&config);
-
+    // // Load AWS configuration
+    // #[allow(deprecated)]
+    // let config: SdkConfig = aws_config::from_env().region(Region::new(region)).load().await;
+    // let client: Client = Client::new(&config);
     // List objects in the bucket subfolder
-    let result: Result<Vec<Object>, aws_sdk_s3::Error> = list_objects(&client,  bucket.as_str(), subfolder.as_str()).await;
+    // let result: Result<Vec<Object>, aws_sdk_s3::Error> = list_objects(&client,  bucket.as_str(), subfolder.as_str()).await;
+    // match result {
+    //     Ok(objects) => {
+    //         for object in objects {
+    //             if let Some(key) = &object.key {
+    //                 let file_exists: bool = Path::new(key).exists();
+    //                 if !file_exists {
+    //                     println!("Downloading: {} ...", key);
+    //                     let len_bytes: usize = get_object(&client, bucket.as_str(), key).await?;
+    //                     println!("Bytes writte: {}", len_bytes);
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     Err(e) => {
+    //         println!("Error listing objects: {}", e);
+    //     }
+    // }
 
-    match result {
-        Ok(objects) => {
-            for object in objects {
-                if let Some(key) = &object.key {
-                    let file_exists: bool = Path::new(key).exists();
-                    if !file_exists {
-                        println!("Downloading: {} ...", key);
-                        let len_bytes: usize = get_object(&client, bucket.as_str(), key).await?;
-                        println!("Bytes writte: {}", len_bytes);
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            println!("Error listing objects: {}", e);
+    let subfolder: String = env::var("SUBFOLDER").expect("SUBFOLDER must be set in .env file");
+    let mut json_structs: Vec<serde_models::JsonStruct>= Vec::new();
+    for entry in glob(format!("{}/*.json", subfolder).as_str()).expect("Failed to read glob pattern") {
+        match entry {
+            Ok(path) => {
+                let file = std::fs::File::open(path)?;
+                let reader = std::io::BufReader::new(file);
+                let mut file_data: Vec<serde_models::JsonStruct> = serde_json::from_reader(reader)?;
+                json_structs.append(&mut file_data);
+            },
+            Err(e) => println!("Error: {:?}", e),
         }
     }
-    
+
+
+
+    println!("{:?}", json_structs);
     println!("Exit!");
     Ok(())
 }
