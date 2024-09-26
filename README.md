@@ -2,7 +2,9 @@
 
 Load all json files from a s3 bucket subfolder and write them as a parquet file.
 
-## J4F comparission Python and Rust
+## Just4Fun Comparing Python and Rust and GO
+
+Benchmark on reading 261 json files and writing them as a single parquet file.
 
 |Tool|Time|
 |---|---|
